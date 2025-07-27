@@ -1,0 +1,35 @@
+{
+  "items": {
+    "taosocks": {
+      "name": "Hu Tao's used socks",
+      "description": "A pair of socks worn by Hu Tao",
+      "price": 500,
+      "limited": true,
+      "quantity": 10,
+      "image_url": "https://raw.githubusercontent.com/yourusername/yourrepo/main/sword.png"
+    },
+    "potion": {
+      "name": "Health Potion",
+      "description": "Restores 50 HP",
+      "price": 100,
+      "limited": false,
+      "image_url": "https://raw.githubusercontent.com/yourusername/yourrepo/main/potion.png"
+    },
+    "shield": {
+      "name": "Wooden Shield",
+      "description": "Basic protection from attacks",
+      "price": 300,
+      "limited": true,
+      "quantity": 5,
+      "image_url": "https://raw.githubusercontent.com/yourusername/yourrepo/main/shield.png"
+    },
+    "gem": {
+      "name": "Rare Gem",
+      "description": "Shiny gem with mysterious powers",
+      "price": 1000,
+      "limited": true,
+      "quantity": 3,
+      "image_url": "https://raw.githubusercontent.com/yourusername/yourrepo/main/gem.png"
+    }
+  }
+}

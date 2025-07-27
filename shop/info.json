@@ -1,0 +1,16 @@
+{
+  "author": ["YuukiEatsYou"],
+  "description": "Shop system that integrates with the Bank System",
+  "install_msg": "Thank you for installing Shop! Run !shop, then !shopfile and modify the json file to add your own items.",
+  "short": "Shop System",
+  "end_user_data_statement": "This cog stores user data.",
+  "min_bot_version": "3.5.0",
+  "max_bot_version": "3.5.20",
+  "min_python_version": [3, 11, 0],
+  "hidden": false,
+  "disabled": false,
+  "required_cogs": {},
+  "requirements": [""],
+  "tags": ["bank", "economy"],
+  "type": "COG"
+}

@@ -1,0 +1,6 @@
+{
+  "author": ["YuukiEatsYou"],
+  "description": "Collection of useful cogs for Red Discord Bot",
+  "install_msg": "Thanks for adding my repo! Use `[p]cog list your-repo-name` to see available cogs.",
+  "short": "Yuuki's custom cogs"
+}
