@@ -31,8 +31,7 @@ class TutorialCog(commands.Cog):
                 "`!freecredits weekly` - Claim weekly YuukiCoins\n"
                 "`!leaderboard` - View the top users by YuukiCoins\n"
                 "`!refer` - Invite members to get Credits!\n"
-                "`!claimreferral <referral_code>` - New members can claim the referral bonus!\n"
-                "`!refer` - Invite members to get Credits!"
+                "`!claimreferral <referral_code>` - New members can claim the referral bonus!"
             ),
             inline=False
         )
