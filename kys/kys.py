@@ -11,14 +11,12 @@ class KysCog(commands.Cog):
     @commands.command()
     async def kys(self, ctx):
         """Sends a GIF response"""
-        # Delete the user's command message
         try:
-            await ctx.message.delete()
-        except discord.Forbidden:
-            pass  # Bot doesn't have message delete permissions
-
-        # Send the GIF response
-        await ctx.send(self.gif_url)
+            embed = discord.Embed(color=await ctx.embed_color())
+            embed.set_image(url=self.gif_url)
+            await ctx.send(embed=embed)
+        except discord.HTTPException:
+            await ctx.send("GIF failed to load :(")
 
 # Setup function required by Red
 async def setup(bot):
