@@ -26,7 +26,9 @@ class TutorialCog(commands.Cog):
                 "`!bank balance` - Shows your YuukiCoin balance\n"
                 "`!bank transfer <user> <amount>` - Send YuukiCoins to other users\n"
                 "`!payday` - Use every hour to get 100 YuukiCoins\n"
-                "`!leaderboard` - View the top users by YuukiCoins"
+                "`!leaderboard` - View the top users by YuukiCoins\n"
+                "`!refer` - Invite members to get Credits!\n"
+                "`!claimreferral <referral_code>` - New members can claim the referral bonus!"
             ),
             inline=False
         )
