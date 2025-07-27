@@ -18,7 +18,7 @@ class CombatGame(commands.Cog):
         )
         self.active_combats = {}
         self.reward_amount = 100  # Credits per victory
-        self.heal_cost = 100  # Cost to fully heal
+        self.heal_cost = 50  # Cost to fully heal
 
     @commands.command()
     @commands.is_owner()
