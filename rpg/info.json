@@ -9,8 +9,6 @@
   "min_python_version": [3, 11, 0],
   "hidden": false,
   "disabled": false,
-  "required_cogs": {},
-  "requirements": [""],
   "tags": ["fun", "economy"],
   "type": "COG"
 }
