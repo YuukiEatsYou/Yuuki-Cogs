@@ -6,7 +6,7 @@ class KysCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.gif_url = "https://media1.tenor.com/m/znYZvCPVkPQAAAAd/galaxy-angel-mint-blancmanche.gif"  # REPLACE WITH ACTUAL GIF URL
+        self.gif_url = "https://media.tenor.com/znYZvCPVkPQAAAAd/tenor.gif"  # REPLACE WITH ACTUAL GIF URL
 
     @commands.command()
     async def kys(self, ctx):
