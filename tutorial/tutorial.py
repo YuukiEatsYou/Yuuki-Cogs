@@ -40,7 +40,7 @@ class TutorialCog(commands.Cog):
                 "`!inventory` - view your inventory\n"
                 "`!item <item_id>` - view item details\n"
                 "`!market` - view the marketplace\n"
-                "`!sellmarket <item_id>` - sell items to the marketplace\n"
+                "`!sellmarket <item_id> <price>` - sell items to the marketplace\n"
                 "`!buymarket <market_id>` - buy items from the marketplace"),
             inline=False
         )
@@ -51,7 +51,7 @@ class TutorialCog(commands.Cog):
                 "`!slot <amount>` - Play slots game\n"
                 "`!hol` - Play higher or lower\n"
                 "`!combat` - Start a combat challenge\n"
-                "`!heal` - Heal yourself for 100 YuukiCoins"
+                "`!heal` - Heal yourself for 50 YuukiCoins"
             ),
             inline=False
         )
