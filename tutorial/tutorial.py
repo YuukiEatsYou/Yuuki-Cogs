@@ -25,10 +25,14 @@ class TutorialCog(commands.Cog):
             value=(
                 "`!bank balance` - Shows your YuukiCoin balance\n"
                 "`!bank transfer <user> <amount>` - Send YuukiCoins to other users\n"
-                "`!payday` - Use every hour to get 100 YuukiCoins\n"
+                "`!freecredits all` - Claim all available YuukiCoins\n"
+                "`!freecredits hourly` - Claim hourly YuukiCoins\n"
+                "`!freecredits daily` - Claim daily YuukiCoins\n"
+                "`!freecredits weekly` - Claim weekly YuukiCoins\n"
                 "`!leaderboard` - View the top users by YuukiCoins\n"
                 "`!refer` - Invite members to get Credits!\n"
-                "`!claimreferral <referral_code>` - New members can claim the referral bonus!"
+                "`!claimreferral <referral_code>` - New members can claim the referral bonus!\n"
+                "`!refer` - Invite members to get Credits!"
             ),
             inline=False
         )
@@ -53,7 +57,8 @@ class TutorialCog(commands.Cog):
                 "`!slot <amount>` - Play slots game\n"
                 "`!hol` - Play higher or lower\n"
                 "`!combat` - Start a combat challenge\n"
-                "`!heal` - Heal yourself for 50 YuukiCoins"
+                "`!heal` - Heal yourself for 50 YuukiCoins\n"
+                "`!lottery lucky3` - Play the lucky3 lottery game for 100 coins"
             ),
             inline=False
         )
