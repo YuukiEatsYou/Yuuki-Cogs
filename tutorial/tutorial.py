@@ -40,8 +40,8 @@ class TutorialCog(commands.Cog):
                 "`!inventory` - view your inventory\n"
                 "`!item <item_id>` - view item details\n"
                 "`!market` - view the marketplace\n"
-                "`!buymarket <market_id>` - buy items from the marketplace\n"
-                "`!sellmarket <market_id>` - sell items to the marketplace"            ),
+                "`!sellmarket <item_id>` - sell items to the marketplace\n"
+                "`!buymarket <market_id>` - buy items from the marketplace"),
             inline=False
         )
 
