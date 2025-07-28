@@ -248,7 +248,7 @@ class BattlePass(commands.Cog):
 
     @battlepassadmin.command(name="viewrewards")
     async def battlepass_viewrewards(self, ctx):
-        """View all Battle Pass rewards"""
+        """View all Battle Pass rewards (paginated)"""
         rewards = await self.config.rewards()
         shop_cog = await self.get_shop_cog()
 
@@ -258,29 +258,39 @@ class BattlePass(commands.Cog):
         if not rewards:
             return await ctx.send("ℹ️ No rewards configured yet!")
 
-        embed = discord.Embed(
-            title="Battle Pass Rewards",
-            description="Configured rewards for each day",
-            color=discord.Color.blue()
-        )
+        # Split rewards into pages (10 per page)
+        sorted_rewards = sorted(rewards.items(), key=lambda x: int(x[0]))
+        pages = []
+        page = []
 
-        for day, reward in sorted(rewards.items(), key=lambda x: int(x[0])):
+        for day, reward in sorted_rewards:
             if reward["type"] == "credits":
-                embed.add_field(
-                    name=f"Day {day}",
-                    value=f"💰 {reward['amount']} credits",
-                    inline=True
-                )
+                page.append(f"**Day {day}:** 💵 {reward['amount']} credits")
             elif reward["type"] == "item" and shop_cog:
                 item_data = shop_cog.shop_items.get(reward["id"], {})
                 name = item_data.get("name", f"Unknown Item ({reward['id']})")
-                embed.add_field(
-                    name=f"Day {day}",
-                    value=f"🎁 {reward.get('quantity', 1)}x {name}",
-                    inline=True
-                )
+                quantity = reward.get("quantity", 1)
+                page.append(f"**Day {day}:** 🎁 {quantity}x {name}")
+            else:
+                page.append(f"**Day {day}:** ❌ Invalid reward configuration")
 
-        await ctx.send(embed=embed)
+            # Start new page after 10 entries
+            if len(page) >= 10:
+                pages.append("\n".join(page))
+                page = []
+
+        # Add any remaining rewards
+        if page:
+            pages.append("\n".join(page))
+
+        # Create paginated embeds
+        for i, page_content in enumerate(pages):
+            embed = discord.Embed(
+                title=f"Battle Pass Rewards (Page {i+1}/{len(pages)})",
+                description=page_content,
+                color=discord.Color.blue()
+            )
+            await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(BattlePass(bot))
