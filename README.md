@@ -12,7 +12,7 @@ Custom Cog Repo for the Red Discord bot
 ## Overview
 
 | Name | Description | Finished? |
-| :------------------- | :----------: | :---------- |
+| :------------------- | :----------: | :----------: |
 | Referral | Get rewarded for inviting new members! | ✅ |
 | Kys | Tell the Bot to kys | ✅ |
 | Shop | Custom shop system including user marketplace | ✅ |
