@@ -114,7 +114,12 @@ class ShopSystem(commands.Cog):
         currency_name = await self.get_currency_name(ctx)
         embed = discord.Embed(title="🛒 Global Shop", color=discord.Color.blue())
 
+        items_displayed = 0
         for item_id, item_data in self.shop_items.items():
+            # Skip sold-out limited items
+            if item_data.get("limited", False) and item_data.get("quantity", 0) <= 0:
+                continue
+
             stock = "∞" if not item_data.get("limited", False) else f"{item_data['quantity']} left"
             embed.add_field(
                 name=f"{item_data['name']} ({item_id})",
@@ -123,6 +128,10 @@ class ShopSystem(commands.Cog):
                       f"📝 {item_data['description']}",
                 inline=False
             )
+            items_displayed += 1
+
+        if items_displayed == 0:
+            return await ctx.send("🛒 The shop is currently sold out! Check back later.")
 
         embed.set_footer(text=f"Use !buy [item_id] to purchase")
         await ctx.send(embed=embed)
