@@ -13,9 +13,14 @@ class KysCog(commands.Cog):
             "https://media.tenor.com/znYZvCPVkPQAAAAd/tenor.gif",
             "https://media.tenor.com/EKk-IX4CAjYAAAAd/tenor.gif",
             "https://media.tenor.com/eohEkLqD9AgAAAAd/tenor.gif",
+            "https://media.tenor.com/iRRfRNU7IGMAAAAd/tenor.gif",
+            "https://media.tenor.com/0uGObo7wlWMAAAAd/tenor.gif",
+            "https://media.tenor.com/eOvNbqR1ANUAAAAd/tenor.gif",
+            "https://media.tenor.com/WZ2FaJkLXgcAAAAd/tenor.gif",
+            "https://media.tenor.com/51ADdhpqqo4AAAAd/tenor.gif",
+            "https://media.tenor.com/9IMZudPio58AAAAd/tenor.gif",
             # Add more GIFs as needed
         ]
-
     @commands.command()
     async def kys(self, ctx):
 
