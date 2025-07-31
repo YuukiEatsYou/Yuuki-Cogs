@@ -2,7 +2,7 @@ import discord
 from redbot.core import commands, Config
 
 class WordFilter(commands.Cog):
-    """Automatically delete messages containing blacklisted words"""
+    """Automatically delete messages containing filtered words"""
 
     def __init__(self, bot):
         self.bot = bot
@@ -22,10 +22,10 @@ class WordFilter(commands.Cog):
         ):
             return
 
-        # Get blacklisted words for this guild
+        # Get filtered words for this guild
         blacklist = await self.config.guild(message.guild).blacklist()
 
-        # Check if message contains any blacklisted word (case-insensitive)
+        # Check if message contains any filtered word (case-insensitive)
         content_lower = message.content.lower()
         if any(bad_word.lower() in content_lower for bad_word in blacklist):
             try:
@@ -39,7 +39,7 @@ class WordFilter(commands.Cog):
     @commands.guild_only()
     @commands.admin_or_permissions(administrator=True)
     async def wordfilter(self, ctx):
-        """Manage blacklisted words for auto-deletion"""
+        """Manage filtered words for auto-deletion"""
         pass
 
     @wordfilter.command(name="add")
@@ -83,6 +83,48 @@ class WordFilter(commands.Cog):
             color=await ctx.embed_color()
         )
         await ctx.send(embed=embed)
+
+    @wordfilter.command(name="clear")
+    @commands.admin_or_permissions(administrator=True)
+    async def wordfilter_clear(self, ctx):
+        """Clear all words from the filter (with confirmation)"""
+        # Create confirmation message
+        embed = discord.Embed(
+            title="⚠️ Confirm Clear",
+            description="This will remove **ALL** words from the filter!\nAre you sure?",
+            color=0xFFCC4D
+        )
+        confirm_msg = await ctx.send(embed=embed)
+
+        # Add reactions
+        await confirm_msg.add_reaction("✅")  # Check mark
+        await confirm_msg.add_reaction("❌")  # X mark
+
+        # Wait for reaction
+        def check(reaction, user):
+            return (
+                user == ctx.author and
+                reaction.message.id == confirm_msg.id and
+                str(reaction.emoji) in ["✅", "❌"]
+            )
+
+        try:
+            reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except TimeoutError:
+            await confirm_msg.delete()
+            return
+
+        # Process reaction
+        if str(reaction.emoji) == "✅":
+            await self.config.guild(ctx.guild).blacklist.set([])
+            await ctx.send("✅ All words have been removed from the filter.")
+        else:
+            await ctx.send("❌ Clear operation cancelled.")
+
+        try:
+            await confirm_msg.delete()
+        except discord.NotFound:
+            pass
 
 async def setup(bot):
     await bot.add_cog(WordFilter(bot))
