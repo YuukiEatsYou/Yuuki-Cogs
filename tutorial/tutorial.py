@@ -57,7 +57,11 @@ class TutorialCog(commands.Cog):
                 "`!hol` - Play higher or lower\n"
                 "`!combat` - Start a combat challenge\n"
                 "`!heal` - Heal yourself for 50 YuukiCoins\n"
-                "`!lottery lucky3` - Play the lucky3 lottery game for 100 coins"
+                "`!lottobuy` - Buy a lottery ticket for 5k YuukiCoins\n"
+                "`!lottopool` - View the current lottery price pool\n"
+                "`!battlepass buy` - Buy the current Battlepass for 5k YuukiCoins\n"
+                "`!battlepass claim` - Claim your Battlepass rewards every 24 hours\n"
+                "`!battlepass status` - View the current status of your Battlepass"
             ),
             inline=False
         )
