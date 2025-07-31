@@ -47,7 +47,7 @@ class WordFilter(commands.Cog):
     async def blacklist_add(self, ctx, *, word: str):
         """Add a word to the blacklist"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
-            if word.lower() in (w.lower() for w in blacklist):
+            if word.lower() in [w.lower() for w in blacklist]:
                 await ctx.send(f"`{word}` is already blacklisted.")
                 return
             blacklist.append(word)
@@ -58,13 +58,11 @@ class WordFilter(commands.Cog):
     async def blacklist_remove(self, ctx, *, word: str):
         """Remove a word from the blacklist"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
-            found = False
-            for w in blacklist[:]:
-                if w.lower() == word.lower():
-                    blacklist.remove(w)
-                    found = True
+            original_length = len(blacklist)
+            # Case-insensitive removal
+            blacklist[:] = [w for w in blacklist if w.lower() != word.lower()]
 
-            if not found:
+            if len(blacklist) == original_length:
                 await ctx.send(f"`{word}` was not found in the blacklist.")
                 return
 
@@ -87,5 +85,5 @@ class WordFilter(commands.Cog):
         )
         await ctx.send(embed=embed)
 
-def setup(bot):
-    bot.add_cog(WordFilter(bot))
+async def setup(bot):
+    await bot.add_cog(WordFilter(bot))
