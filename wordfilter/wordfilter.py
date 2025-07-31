@@ -1,6 +1,5 @@
 import discord
 from redbot.core import commands, Config
-from redbot.core.utils import mod
 
 class WordFilter(commands.Cog):
     """Automatically delete messages containing blacklisted words"""
@@ -17,9 +16,9 @@ class WordFilter(commands.Cog):
     async def on_message(self, message):
         # Ignore messages from bots, server owners, and DMs
         if (
+            not message.guild or
             message.author.bot or
-            message.author == message.guild.owner or
-            not message.guild
+            message.author == message.guild.owner
         ):
             return
 
@@ -34,11 +33,11 @@ class WordFilter(commands.Cog):
             except discord.NotFound:
                 pass  # Message already deleted
             except discord.Forbidden:
-                print(f"Missing permissions to delete messages in {message.guild.name}")
+                pass  # Missing permissions
 
     @commands.group()
     @commands.guild_only()
-    @mod.is_mod()
+    @commands.admin_or_permissions(administrator=True)
     async def blacklist(self, ctx):
         """Manage blacklisted words"""
         pass
@@ -47,7 +46,7 @@ class WordFilter(commands.Cog):
     async def blacklist_add(self, ctx, *, word: str):
         """Add a word to the blacklist"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
-            if word.lower() in [w.lower() for w in blacklist]:
+            if any(w.lower() == word.lower() for w in blacklist):
                 await ctx.send(f"`{word}` is already blacklisted.")
                 return
             blacklist.append(word)
