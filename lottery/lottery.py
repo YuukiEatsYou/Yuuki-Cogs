@@ -1,6 +1,7 @@
 import asyncio
 import random
 import discord
+import time
 from redbot.core import commands, Config, bank
 from redbot.core.bot import Red
 from typing import Dict, List, Tuple, Optional
@@ -13,19 +14,45 @@ class Lottery(commands.Cog):
             "pool": 0,          # Current prize pool (credits)
             "tickets": {},       # {user_id: [n1, n2, n3, n4, n5]}
             "channel_id": None,  # Announcement channel ID
+            "cycle_minutes": 300, # Default 5 hours (300 minutes)
+            "multiplier": 1,     # Default prize pool multiplier
+            "next_draw": 0,      # Timestamp of next draw
         }
         self.config.register_guild(**default_guild)
+        self.lottery_task = None
+        self.bot.loop.create_task(self.initialize_scheduler())
+
+    async def initialize_scheduler(self):
+        await self.bot.wait_until_ready()
         self.lottery_task = self.bot.loop.create_task(self.lottery_scheduler())
 
     def cog_unload(self):
-        self.lottery_task.cancel()
+        if self.lottery_task:
+            self.lottery_task.cancel()
 
     async def lottery_scheduler(self):
-        await self.bot.wait_until_ready()
         while True:
-            await asyncio.sleep(5 * 3600)  # 5 hours
-            for guild in self.bot.guilds:
-                await self.draw_lottery(guild)
+            data = await self.config.guild(self.bot.guilds[0]).all()
+            next_draw = data["next_draw"]
+            current_time = time.time()
+
+            # Calculate wait time
+            if next_draw <= current_time:
+                # Draw immediately if we missed the schedule
+                wait_time = 0
+                await self.config.guild(self.bot.guilds[0]).next_draw.set(
+                    current_time + data["cycle_minutes"] * 60
+                )
+            else:
+                wait_time = next_draw - current_time
+
+            await asyncio.sleep(wait_time)
+            await self.draw_lottery(self.bot.guilds[0])
+
+            # Set next draw time
+            cycle_minutes = await self.config.guild(self.bot.guilds[0]).cycle_minutes()
+            next_draw = time.time() + cycle_minutes * 60
+            await self.config.guild(self.bot.guilds[0]).next_draw.set(next_draw)
 
     @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.user)
@@ -52,17 +79,47 @@ class Lottery(commands.Cog):
             ticket = [random.randint(0, 9) for _ in range(5)]
             data["tickets"][user_id] = ticket
 
+        # Calculate time until next draw
+        next_draw = await self.config.guild(ctx.guild).next_draw()
+        time_left = next_draw - time.time()
+        if time_left <= 0:
+            time_str = "soon"
+        else:
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            time_str = f"{hours} hours and {minutes} minutes"
+
         await ctx.send(
             f"Ticket purchased! Your numbers: `{ticket}`\n"
-            f"Next draw in approximately 5 hours"
+            f"Next draw in approximately {time_str}"
         )
 
     @commands.command()
     async def lottopool(self, ctx: commands.Context):
         """Show current lottery prize pool"""
-        pool = await self.config.guild(ctx.guild).pool()
-        tickets = await self.config.guild(ctx.guild).tickets()
-        await ctx.send(f"**Prize Pool:** {pool} credits\n**Tickets sold:** {len(tickets)}")
+        data = await self.config.guild(ctx.guild).all()
+        base_pool = data["pool"]
+        multiplier = data["multiplier"]
+        total_pool = base_pool * multiplier
+
+        tickets = data["tickets"]
+        next_draw = data["next_draw"]
+        time_left = next_draw - time.time()
+
+        if time_left <= 0:
+            time_str = "soon"
+        else:
+            hours = int(time_left // 3600)
+            minutes = int((time_left % 3600) // 60)
+            time_str = f"{hours}h {minutes}m"
+
+        await ctx.send(
+            f"**Base Pool:** {base_pool} credits\n"
+            f"**Multiplier:** {multiplier}x\n"
+            f"**Total Prize Pool:** {total_pool} credits\n"
+            f"**Tickets Sold:** {len(tickets)}\n"
+            f"**Next Draw:** {time_str}"
+        )
 
     @commands.group()
     @commands.admin_or_permissions(manage_guild=True)
@@ -76,10 +133,34 @@ class Lottery(commands.Cog):
         await self.config.guild(ctx.guild).channel_id.set(channel.id)
         await ctx.send(f"Lottery announcements will now be sent to {channel.mention}")
 
+    @lottoset.command()
+    async def cycle(self, ctx: commands.Context, minutes: int):
+        """Set draw cycle length in minutes (applies next cycle)"""
+        if minutes < 1:
+            return await ctx.send("Cycle must be at least 1 minute")
+        await self.config.guild(ctx.guild).cycle_minutes.set(minutes)
+        await ctx.send(f"Draw cycle set to {minutes} minutes. Will apply after current cycle.")
+
+    @lottoset.command()
+    async def multiplier(self, ctx: commands.Context, multiplier: int):
+        """Set prize pool multiplier (e.g., 10 for 10x)"""
+        if multiplier < 1:
+            return await ctx.send("Multiplier must be at least 1")
+        await self.config.guild(ctx.guild).multiplier.set(multiplier)
+        await ctx.send(f"Prize pool multiplier set to {multiplier}x")
+
     async def draw_lottery(self, guild: discord.Guild):
         data = await self.config.guild(guild).all()
         if not data["tickets"]:
-            return  # No active tickets
+            # Reset timer if no tickets
+            next_draw = time.time() + data["cycle_minutes"] * 60
+            await self.config.guild(guild).next_draw.set(next_draw)
+            return
+
+        # Apply multiplier to prize pool
+        base_pool = data["pool"]
+        multiplier = data["multiplier"]
+        prize_pool = base_pool * multiplier
 
         # Generate winning numbers
         winning_numbers = [random.randint(0, 9) for _ in range(5)]
@@ -92,7 +173,6 @@ class Lottery(commands.Cog):
                 winners.append((int(user_id), matches, ticket))
 
         total_wins = sum(match_count for _, match_count, _ in winners)
-        prize_pool = data["pool"]
 
         # Calculate winnings
         payouts = {}
@@ -116,7 +196,7 @@ class Lottery(commands.Cog):
 
         # Calculate leftover
         total_payout = sum(payouts.values())
-        leftover = prize_pool - total_payout
+        leftover = base_pool - (total_payout // multiplier)  # Revert multiplier for storage
 
         # Save results
         await self.config.guild(guild).pool.set(leftover)
@@ -162,16 +242,24 @@ class Lottery(commands.Cog):
             inline=False
         )
 
+        # Get next cycle time for footer
+        cycle_minutes = await self.config.guild(guild).cycle_minutes()
+        hours = cycle_minutes // 60
+        minutes = cycle_minutes % 60
+        footer = f"Next draw in {hours} hours {minutes} minutes"
+
         embed.add_field(
-            name="Prize Pool",
+            name="Prize Pool Breakdown",
             value=(
-                f"**Current:** {prize_pool} credits\n"
-                f"**Paid out:** {total_payout} credits\n"
-                f"**Carry over:** {leftover} credits"
+                f"**Base Pool:** {base_pool} credits\n"
+                f"**Multiplier:** {multiplier}x\n"
+                f"**Total Pool:** {prize_pool} credits\n"
+                f"**Paid Out:** {total_payout} credits\n"
+                f"**Carry Over:** {leftover} credits"
             )
         )
 
-        embed.set_footer(text="Next draw in 5 hours")
+        embed.set_footer(text=footer)
         await channel.send(embed=embed)
 
 def setup(bot: Red):
