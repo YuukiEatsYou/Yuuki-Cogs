@@ -38,47 +38,47 @@ class WordFilter(commands.Cog):
     @commands.group()
     @commands.guild_only()
     @commands.admin_or_permissions(administrator=True)
-    async def blacklist(self, ctx):
-        """Manage blacklisted words"""
+    async def wordfilter(self, ctx):
+        """Manage blacklisted words for auto-deletion"""
         pass
 
-    @blacklist.command(name="add")
-    async def blacklist_add(self, ctx, *, word: str):
-        """Add a word to the blacklist"""
+    @wordfilter.command(name="add")
+    async def wordfilter_add(self, ctx, *, word: str):
+        """Add a word to the filter"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
             if any(w.lower() == word.lower() for w in blacklist):
-                await ctx.send(f"`{word}` is already blacklisted.")
+                await ctx.send(f"`{word}` is already in the word filter.")
                 return
             blacklist.append(word)
 
-        await ctx.send(f"Added `{word}` to the blacklist.")
+        await ctx.send(f"Added `{word}` to the word filter.")
 
-    @blacklist.command(name="remove", aliases=["rm", "delete"])
-    async def blacklist_remove(self, ctx, *, word: str):
-        """Remove a word from the blacklist"""
+    @wordfilter.command(name="remove", aliases=["rm", "delete"])
+    async def wordfilter_remove(self, ctx, *, word: str):
+        """Remove a word from the filter"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
             original_length = len(blacklist)
             # Case-insensitive removal
             blacklist[:] = [w for w in blacklist if w.lower() != word.lower()]
 
             if len(blacklist) == original_length:
-                await ctx.send(f"`{word}` was not found in the blacklist.")
+                await ctx.send(f"`{word}` was not found in the word filter.")
                 return
 
-        await ctx.send(f"Removed `{word}` from the blacklist.")
+        await ctx.send(f"Removed `{word}` from the word filter.")
 
-    @blacklist.command(name="list")
-    async def blacklist_list(self, ctx):
-        """List all blacklisted words"""
+    @wordfilter.command(name="list")
+    async def wordfilter_list(self, ctx):
+        """List all filtered words"""
         blacklist = await self.config.guild(ctx.guild).blacklist()
 
         if not blacklist:
-            await ctx.send("The blacklist is empty.")
+            await ctx.send("The word filter is empty.")
             return
 
         formatted_list = "\n".join(f"• {word}" for word in blacklist)
         embed = discord.Embed(
-            title="Blacklisted Words",
+            title="Filtered Words",
             description=formatted_list,
             color=await ctx.embed_color()
         )
