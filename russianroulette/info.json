@@ -1,0 +1,14 @@
+{
+  "author": ["YuukiEatsYou"],
+  "description": "Russian Roulette!",
+  "install_msg": "Thank you for installing russian roulette!",
+  "short": "Russian Roulette",
+  "end_user_data_statement": "This cog doesn't store any user data.",
+  "min_bot_version": "3.5.0",
+  "max_bot_version": "3.5.20",
+  "min_python_version": [3, 11, 0],
+  "hidden": false,
+  "disabled": false,
+  "tags": ["fun", "economy"],
+  "type": "COG"
+}
