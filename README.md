@@ -18,3 +18,6 @@ Custom Cog Repo for the Red Discord bot
 | Shop | Custom shop system including user marketplace | ✅ |
 | Tutorial | Displays a tutorial specific to my server. Fork to customize | ✅ |
 | RPG | Turn based combat game | ❌ |
+| Word Filter | Automatically delete messages containing certain words | ✅ |
+| Battlepass | Daily Rewards for Battlepass owners | ✅ |
+| Lottery | A lottery system | ✅ |
