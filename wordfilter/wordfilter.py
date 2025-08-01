@@ -12,15 +12,15 @@ class WordFilter(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
-    @commands.Cog.listener()
-    async def on_message(self, message):
+    async def check_and_delete(self, message):
+        """Check if a message contains filtered words and delete it if found"""
         # Ignore messages from bots, server owners, and DMs
         if (
             not message.guild or
             message.author.bot or
             message.author == message.guild.owner
         ):
-            return
+            return False
 
         # Get filtered words for this guild
         blacklist = await self.config.guild(message.guild).blacklist()
@@ -30,10 +30,24 @@ class WordFilter(commands.Cog):
         if any(bad_word.lower() in content_lower for bad_word in blacklist):
             try:
                 await message.delete()
+                return True
             except discord.NotFound:
                 pass  # Message already deleted
             except discord.Forbidden:
                 pass  # Missing permissions
+        return False
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        """Handle new messages"""
+        await self.check_and_delete(message)
+
+    @commands.Cog.listener()
+    async def on_message_edit(self, before, after):
+        """Handle edited messages"""
+        # Only process if content actually changed
+        if before.content != after.content:
+            await self.check_and_delete(after)
 
     @commands.group()
     @commands.guild_only()
