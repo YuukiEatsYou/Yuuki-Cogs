@@ -180,7 +180,7 @@ class ShopSystem(commands.Cog):
         # Create paginated embeds
         embeds = []
         items_per_page = 5
-        pages = (len(items_to_show) // items_per_page
+        pages = (len(items_to_show) // items_per_page)
         if len(items_to_show) % items_per_page != 0:
             pages += 1
 
