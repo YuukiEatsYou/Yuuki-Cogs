@@ -6,6 +6,60 @@ from pathlib import Path
 from uuid import uuid4
 from typing import Literal, Optional
 from redbot.core import commands, Config, bank, checks, data_manager
+from discord.ui import Button, View
+
+class PaginatorView(View):
+    """View for paginating embeds with navigation buttons"""
+    def __init__(self, embeds, timeout=60):
+        super().__init__(timeout=timeout)
+        self.embeds = embeds
+        self.current_page = 0
+        self.message = None
+
+        # Update button states
+        self.update_buttons()
+
+    def update_buttons(self):
+        """Update button states based on current page"""
+        # Clear existing buttons
+        self.clear_items()
+
+        # Previous button
+        prev_button = Button(emoji="⬅️", style=discord.ButtonStyle.secondary,
+                            disabled=self.current_page == 0)
+        prev_button.callback = self.previous_page
+        self.add_item(prev_button)
+
+        # Page counter
+        page_button = Button(label=f"{self.current_page+1}/{len(self.embeds)}",
+                            style=discord.ButtonStyle.primary, disabled=True)
+        self.add_item(page_button)
+
+        # Next button
+        next_button = Button(emoji="➡️", style=discord.ButtonStyle.secondary,
+                            disabled=self.current_page == len(self.embeds)-1)
+        next_button.callback = self.next_page
+        self.add_item(next_button)
+
+    async def previous_page(self, interaction):
+        """Go to previous page"""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
+
+    async def next_page(self, interaction):
+        """Go to next page"""
+        if self.current_page < len(self.embeds) - 1:
+            self.current_page += 1
+            self.update_buttons()
+            await interaction.response.edit_message(embed=self.embeds[self.current_page], view=self)
+
+    async def on_timeout(self):
+        """Disable buttons when view times out"""
+        for item in self.children:
+            item.disabled = True
+        await self.message.edit(view=self)
 
 class ShopSystem(commands.Cog):
     """Shop system with inventory, global shop, and player marketplace"""
@@ -106,42 +160,60 @@ class ShopSystem(commands.Cog):
 
     @commands.command()
     async def shop(self, ctx):
-        """View the global shop"""
+        """View the global shop with pagination"""
         await self.ensure_ready()
         if not self.shop_items:
             return await ctx.send("🛒 The shop is currently empty!")
 
         currency_name = await self.get_currency_name(ctx)
-        embed = discord.Embed(title="🛒 Global Shop", color=discord.Color.blue())
+        items_to_show = []
 
-        items_displayed = 0
+        # Collect available items
         for item_id, item_data in self.shop_items.items():
-            # Skip sold-out limited items
             if item_data.get("limited", False) and item_data.get("quantity", 0) <= 0:
                 continue
+            items_to_show.append((item_id, item_data))
 
-            stock = "∞" if not item_data.get("limited", False) else f"{item_data['quantity']} left"
-            embed.add_field(
-                name=f"{item_data['name']} ({item_id})",
-                value=f"💵 Price: {item_data['price']} {currency_name}\n"
-                      f"📦 Stock: {stock}\n"
-                      f"📝 {item_data['description']}",
-                inline=False
-            )
-            items_displayed += 1
-
-        if items_displayed == 0:
+        if not items_to_show:
             return await ctx.send("🛒 The shop is currently sold out! Check back later.")
 
-        embed.set_footer(text=f"Use !buy [item_id] to purchase")
-        await ctx.send(embed=embed)
+        # Create paginated embeds
+        embeds = []
+        items_per_page = 5
+        pages = (len(items_to_show) // items_per_page
+        if len(items_to_show) % items_per_page != 0:
+            pages += 1
+
+        for page in range(pages):
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            page_items = items_to_show[start_idx:end_idx]
+
+            embed = discord.Embed(
+                title=f"🛒 Global Shop - Page {page+1}/{pages}",
+                color=discord.Color.blue()
+            )
+
+            for item_id, item_data in page_items:
+                stock = "∞" if not item_data.get("limited", False) else f"{item_data['quantity']} left"
+                embed.add_field(
+                    name=f"{item_data['name']} ({item_id})",
+                    value=f"💵 Price: {item_data['price']} {currency_name}\n"
+                          f"📦 Stock: {stock}\n"
+                          f"📝 {item_data['description']}",
+                    inline=False
+                )
+
+            embed.set_footer(text=f"Use !buy [item_id] to purchase")
+            embeds.append(embed)
+
+        # Create and send paginator view
+        view = PaginatorView(embeds)
+        view.message = await ctx.send(embed=embeds[0], view=view)
 
     @commands.command()
     async def buy(self, ctx, item_id: str, quantity: int = 1):
-        """Buy an item from the shop
-
-        Example: !buy sword 2
-        """
+        """Buy an item from the shop"""
         await self.ensure_ready()
         item_id = item_id.lower()
         item_data = self.shop_items.get(item_id)
@@ -188,10 +260,7 @@ class ShopSystem(commands.Cog):
 
     @commands.command()
     async def sell(self, ctx, item_id: str, quantity: int = 1):
-        """Sell an item back to the shop for 80% of the original price
-
-        Example: !sell sword 2
-        """
+        """Sell an item back to the shop for 80% of the original price"""
         await self.ensure_ready()
         item_id = item_id.lower()
         item_data = self.shop_items.get(item_id)
@@ -234,10 +303,7 @@ class ShopSystem(commands.Cog):
 
     @commands.command()
     async def inventory(self, ctx, user: Optional[discord.User] = None):
-        """View your inventory
-
-        Example: !inventory @User
-        """
+        """View your inventory with pagination"""
         await self.ensure_ready()
         target = user or ctx.author
         user_inv = await self.config.user(target).inventory()
@@ -250,29 +316,45 @@ class ShopSystem(commands.Cog):
         for item_id in user_inv:
             item_counts[item_id] = item_counts.get(item_id, 0) + 1
 
-        # Create embed
-        embed = discord.Embed(
-            title=f"🎒 {target.display_name}'s Inventory",
-            description=f"{len(user_inv)}/50 slots used",
-            color=discord.Color.green()
-        )
+        # Create paginated embeds
+        embeds = []
+        items_per_page = 9  # 3x3 grid
+        items = list(item_counts.items())
+        pages = (len(items) + items_per_page - 1) // items_per_page
 
-        for item_id, count in item_counts.items():
-            item_data = self.shop_items.get(item_id, {"name": f"Unknown Item ({item_id})"})
-            embed.add_field(
-                name=item_data["name"],
-                value=f"ID: `{item_id}`\nQuantity: {count}",
-                inline=True
+        for page in range(pages):
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            page_items = items[start_idx:end_idx]
+
+            embed = discord.Embed(
+                title=f"🎒 {target.display_name}'s Inventory - Page {page+1}/{pages or 1}",
+                description=f"{len(user_inv)}/50 slots used",
+                color=discord.Color.green()
             )
 
-        await ctx.send(embed=embed)
+            for item_id, count in page_items:
+                item_data = self.shop_items.get(item_id, {"name": f"Unknown Item ({item_id})"})
+                embed.add_field(
+                    name=item_data["name"],
+                    value=f"ID: `{item_id}`\nQuantity: {count}",
+                    inline=True
+                )
+
+            # Add empty fields to keep grid alignment
+            if len(page_items) % 3 != 0:
+                for _ in range(3 - (len(page_items) % 3)):
+                    embed.add_field(name="\u200b", value="\u200b", inline=True)
+
+            embeds.append(embed)
+
+        # Create and send paginator view
+        view = PaginatorView(embeds)
+        view.message = await ctx.send(embed=embeds[0], view=view)
 
     @commands.command()
     async def item(self, ctx, item_id: str):
-        """View item information with image
-
-        Example: !item sword
-        """
+        """View item information with image"""
         await self.ensure_ready()
         item_id = item_id.lower()
         item_data = self.shop_items.get(item_id)
@@ -309,7 +391,7 @@ class ShopSystem(commands.Cog):
 
     @commands.command()
     async def market(self, ctx):
-        """View marketplace listings"""
+        """View marketplace listings with pagination"""
         await self.ensure_ready()
         market_data = await self.config.guild(ctx.guild).market()
         currency_name = await self.get_currency_name(ctx)
@@ -317,22 +399,39 @@ class ShopSystem(commands.Cog):
         if not market_data:
             return await ctx.send("ℹ️ The marketplace is empty!")
 
-        embed = discord.Embed(title="🏪 Player Marketplace", color=discord.Color.orange())
+        # Create paginated embeds
+        embeds = []
+        items_per_page = 5
+        pages = (len(market_data) + items_per_page - 1) // items_per_page
 
-        for listing in market_data:
-            seller = self.bot.get_user(listing["seller_id"])
-            item_data = self.shop_items.get(listing["item_id"], {"name": f"Unknown Item ({listing['item_id']})"})
+        for page in range(pages):
+            start_idx = page * items_per_page
+            end_idx = start_idx + items_per_page
+            page_listings = market_data[start_idx:end_idx]
 
-            embed.add_field(
-                name=f"{item_data['name']} - 💵 {listing['price']} {currency_name}",
-                value=f"Seller: {seller.mention if seller else 'Unknown'}\n"
-                      f"Listing ID: `{listing['id']}`\n"
-                      f"Item ID: `{listing['item_id']}`",
-                inline=False
+            embed = discord.Embed(
+                title=f"🏪 Player Marketplace - Page {page+1}/{pages or 1}",
+                color=discord.Color.orange()
             )
 
-        embed.set_footer(text=f"Use !buymarket [listing_id] to purchase")
-        await ctx.send(embed=embed)
+            for listing in page_listings:
+                seller = self.bot.get_user(listing["seller_id"])
+                item_data = self.shop_items.get(listing["item_id"], {"name": f"Unknown Item ({listing['item_id']})"})
+
+                embed.add_field(
+                    name=f"{item_data['name']} - 💵 {listing['price']} {currency_name}",
+                    value=f"Seller: {seller.mention if seller else 'Unknown'}\n"
+                          f"Listing ID: `{listing['id']}`\n"
+                          f"Item ID: `{listing['item_id']}`",
+                    inline=False
+                )
+
+            embed.set_footer(text=f"Use !buymarket [listing_id] to purchase")
+            embeds.append(embed)
+
+        # Create and send paginator view
+        view = PaginatorView(embeds)
+        view.message = await ctx.send(embed=embeds[0], view=view)
 
     @commands.command()
     async def buymarket(self, ctx, listing_id: str):
