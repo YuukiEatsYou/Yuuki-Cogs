@@ -13,9 +13,6 @@ class WordFilter(commands.Cog):
         }
         self.config.register_guild(**default_guild)
 
-        # Warn if normalization might not work perfectly
-        bot.logger.info("WordFilter cog loaded. Note: Character normalization works best with Python 3.8+")
-
     def normalize_text(self, text):
         """Normalize text by converting to lowercase and removing diacritics"""
         # Normalize to NFKD form which separates characters and diacritics
