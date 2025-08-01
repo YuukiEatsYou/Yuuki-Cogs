@@ -1,5 +1,6 @@
 import discord
 from redbot.core import commands, Config
+import unicodedata
 
 class WordFilter(commands.Cog):
     """Automatically delete messages containing filtered words"""
@@ -11,6 +12,18 @@ class WordFilter(commands.Cog):
             "blacklist": []
         }
         self.config.register_guild(**default_guild)
+
+        # Warn if normalization might not work perfectly
+        bot.logger.info("WordFilter cog loaded. Note: Character normalization works best with Python 3.8+")
+
+    def normalize_text(self, text):
+        """Normalize text by converting to lowercase and removing diacritics"""
+        # Normalize to NFKD form which separates characters and diacritics
+        normalized = unicodedata.normalize('NFKD', text.lower())
+        # Remove diacritical marks and convert to ASCII
+        cleaned = ''.join(c for c in normalized if not unicodedata.combining(c))
+        # Remove non-ASCII characters and return
+        return cleaned.encode('ascii', 'ignore').decode('ascii')
 
     async def check_and_delete(self, message):
         """Check if a message contains filtered words and delete it if found"""
@@ -25,16 +38,24 @@ class WordFilter(commands.Cog):
         # Get filtered words for this guild
         blacklist = await self.config.guild(message.guild).blacklist()
 
-        # Check if message contains any filtered word (case-insensitive)
-        content_lower = message.content.lower()
-        if any(bad_word.lower() in content_lower for bad_word in blacklist):
-            try:
-                await message.delete()
-                return True
-            except discord.NotFound:
-                pass  # Message already deleted
-            except discord.Forbidden:
-                pass  # Missing permissions
+        if not blacklist:
+            return False
+
+        # Normalize message content for better matching
+        normalized_content = self.normalize_text(message.content)
+
+        # Check if message contains any filtered word
+        for bad_word in blacklist:
+            # Normalize the bad word too for consistency
+            normalized_bad = self.normalize_text(bad_word)
+            if normalized_bad and normalized_bad in normalized_content:
+                try:
+                    await message.delete()
+                    return True
+                except discord.NotFound:
+                    pass  # Message already deleted
+                except discord.Forbidden:
+                    pass  # Missing permissions
         return False
 
     @commands.Cog.listener()
@@ -59,10 +80,17 @@ class WordFilter(commands.Cog):
     @wordfilter.command(name="add")
     async def wordfilter_add(self, ctx, *, word: str):
         """Add a word to the filter"""
+        if len(word) < 2:
+            await ctx.send("Word must be at least 2 characters long.")
+            return
+
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
-            if any(w.lower() == word.lower() for w in blacklist):
-                await ctx.send(f"`{word}` is already in the word filter.")
-                return
+            # Check both original and normalized versions for duplicates
+            normalized_new = self.normalize_text(word)
+            for existing in blacklist:
+                if self.normalize_text(existing) == normalized_new:
+                    await ctx.send(f"`{word}` or a similar variation is already in the word filter.")
+                    return
             blacklist.append(word)
 
         await ctx.send(f"Added `{word}` to the word filter.")
@@ -72,14 +100,17 @@ class WordFilter(commands.Cog):
         """Remove a word from the filter"""
         async with self.config.guild(ctx.guild).blacklist() as blacklist:
             original_length = len(blacklist)
-            # Case-insensitive removal
-            blacklist[:] = [w for w in blacklist if w.lower() != word.lower()]
+            # Normalize the word to remove
+            normalized_target = self.normalize_text(word)
+            # Case-insensitive and accent-insensitive removal
+            blacklist[:] = [w for w in blacklist
+                           if self.normalize_text(w) != normalized_target]
 
             if len(blacklist) == original_length:
-                await ctx.send(f"`{word}` was not found in the word filter.")
+                await ctx.send(f"`{word}` or its variations were not found in the word filter.")
                 return
 
-        await ctx.send(f"Removed `{word}` from the word filter.")
+        await ctx.send(f"Removed all variations of `{word}` from the word filter.")
 
     @wordfilter.command(name="list")
     async def wordfilter_list(self, ctx):
