@@ -14,9 +14,10 @@ class Lottery(commands.Cog):
             "pool": 0,          # Current prize pool (credits)
             "tickets": {},       # {user_id: [n1, n2, n3, n4, n5]}
             "channel_id": None,  # Announcement channel ID
-            "cycle_minutes": 300, # Default 5 hours (300 minutes)
-            "multiplier": 1,     # Default prize pool multiplier
+            "cycle_minutes": 30, # Default 5 hours (300 minutes)
+            "multiplier": 40,     # Default prize pool multiplier
             "next_draw": 0,      # Timestamp of next draw
+            "banned_user": None, # ID of banned user
         }
         self.config.register_guild(**default_guild)
         self.lottery_task = None
@@ -149,6 +150,18 @@ class Lottery(commands.Cog):
         await self.config.guild(ctx.guild).multiplier.set(multiplier)
         await ctx.send(f"Prize pool multiplier set to {multiplier}x")
 
+    @lottoset.command()
+    async def banwinner(self, ctx: commands.Context, user: discord.User):
+        """Prevent a user from winning the lottery (stealth mode)"""
+        await self.config.guild(ctx.guild).banned_user.set(user.id)
+        await ctx.send(f"{user.mention} has been secretly banned from winning! 🤫")
+
+    @lottoset.command()
+    async def unbanwinner(self, ctx: commands.Context):
+        """Remove win ban from a user"""
+        await self.config.guild(ctx.guild).banned_user.set(None)
+        await ctx.send("Win ban has been removed!")
+
     async def draw_lottery(self, guild: discord.Guild):
         data = await self.config.guild(guild).all()
         if not data["tickets"]:
@@ -162,11 +175,29 @@ class Lottery(commands.Cog):
         multiplier = data["multiplier"]
         prize_pool = base_pool * multiplier
 
-        # Generate winning numbers
-        winning_numbers = [random.randint(0, 9) for _ in range(5)]
-        winners = []  # (user_id, match_count, ticket)
+        # Generate base winning numbers
+        base_winning_numbers = [random.randint(0, 9) for _ in range(5)]
+        winning_numbers = base_winning_numbers.copy()
 
-        # Check tickets
+        # Check if we need to modify winning numbers for banned user
+        banned_user_id = data["banned_user"]
+        banned_has_ticket = banned_user_id and str(banned_user_id) in data["tickets"]
+        modified = False
+
+        if banned_has_ticket:
+            banned_ticket = data["tickets"][str(banned_user_id)]
+            # Create a copy to modify
+            winning_numbers = base_winning_numbers.copy()
+
+            # For each position where banned user would win, modify that number
+            for i in range(5):
+                if banned_ticket[i] == winning_numbers[i]:
+                    # Modify this number to prevent win
+                    winning_numbers[i] = (winning_numbers[i] + 1) % 10
+                    modified = True
+
+        # Check all tickets against the final winning numbers
+        winners = []  # (user_id, match_count, ticket)
         for user_id, ticket in data["tickets"].items():
             matches = sum(1 for i in range(5) if ticket[i] == winning_numbers[i])
             if matches > 0:
@@ -216,7 +247,7 @@ class Lottery(commands.Cog):
             color=discord.Color.gold()
         )
 
-        # Format winning numbers
+        # Format winning numbers (always show final numbers)
         win_str = " ".join(str(n) for n in winning_numbers)
         embed.add_field(name="Winning Numbers", value=f"`{win_str}`", inline=False)
 
