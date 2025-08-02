@@ -5,9 +5,9 @@ from redbot.core import commands, bank
 from redbot.core.errors import BalanceTooHigh
 
 class RussianRoulette(commands.Cog):
-    """Multiplayer Russian Roulette with proper economy handling"""
+    """Multiplayer Russian Roulette with consistent bullet mechanics"""
 
-    ENTRY_FEE = 100000
+    ENTRY_FEE = 10000
 
     def __init__(self, bot):
         self.bot = bot
@@ -44,8 +44,11 @@ class RussianRoulette(commands.Cog):
         if guild_id not in self.games:
             return [], []
 
-        game = self.games[guild_id]
         guild = self.bot.get_guild(guild_id)
+        if not guild:
+            return [], []
+
+        game = self.games[guild_id]
         refunded = []
         failed = []
 
@@ -137,9 +140,17 @@ class RussianRoulette(commands.Cog):
             # Game setup
             game["in_progress"] = True
             player_data = list(game["players"].items())
-            bullet_count = random.randint(1, 5)
             random.shuffle(player_data)
-            survivors = []
+
+            # Create chamber with random bullets (1-5)
+            chamber = [False] * 6  # False = empty, True = bullet
+            bullet_count = random.randint(1, 5)
+            bullet_positions = random.sample(range(6), bullet_count)
+            for pos in bullet_positions:
+                chamber[pos] = True
+
+            # Start at random position
+            current_chamber = random.randint(0, 5)
 
             # Show game start
             embed = discord.Embed(
@@ -155,14 +166,19 @@ class RussianRoulette(commands.Cog):
             await ctx.send(embed=embed)
 
             # Game sequence
+            survivors = []
             for user_id, display_name in player_data:
                 await asyncio.sleep(2)
 
-                if random.randint(1, 6) <= bullet_count:  # Player shot
+                # Check current chamber
+                if chamber[current_chamber]:
                     await ctx.send(f"💥 **BANG!** <@{user_id}> ({display_name}) is eliminated!")
-                else:  # Player survives
+                else:
                     await ctx.send(f"✅ *click* <@{user_id}> ({display_name}) survives!")
                     survivors.append((user_id, display_name))
+
+                # Advance to next chamber
+                current_chamber = (current_chamber + 1) % 6
 
             # Payouts
             await asyncio.sleep(1)
