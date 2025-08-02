@@ -13,39 +13,47 @@ class RussianRoulette(commands.Cog):
         self.bot = bot
         self.games = {}
         self.join_lock = asyncio.Lock()
-        self.bank_cog = None
 
-    async def get_bank_cog(self):
-        """Safely get the bank cog instance"""
-        if not self.bank_cog or not self.bank_cog.registered:
-            self.bank_cog = self.bot.get_cog("Bank")
-        return self.bank_cog
+    async def get_member(self, guild: discord.Guild, user_id: int) -> discord.Member:
+        """Get member from guild or fetch globally if needed"""
+        member = guild.get_member(user_id)
+        if member:
+            return member
 
-    async def refund_player(self, ctx, user_id: int):
+        try:
+            return await guild.fetch_member(user_id)
+        except discord.NotFound:
+            try:
+                return await self.bot.fetch_user(user_id)
+            except discord.NotFound:
+                return None
+
+    async def refund_player(self, ctx, guild: discord.Guild, user_id: int):
         """Safely refund a player"""
         try:
-            bank_cog = await self.get_bank_cog()
-            if bank_cog:
-                await bank_cog.deposit_credits(user_id, self.ENTRY_FEE)
+            member = await self.get_member(guild, user_id)
+            if member:
+                await bank.deposit_credits(member, self.ENTRY_FEE)
                 return True
-        except (BalanceTooHigh, ValueError, TypeError):
+        except (BalanceTooHigh, ValueError, TypeError, AttributeError):
             pass
         return False
 
     async def refund_lobby(self, ctx, guild_id: int):
         """Refund all players in a lobby"""
         if guild_id not in self.games:
-            return
+            return [], []
 
         game = self.games[guild_id]
+        guild = self.bot.get_guild(guild_id)
         refunded = []
         failed = []
 
-        for user_id in list(game["players"].keys()):
-            if await self.refund_player(ctx, user_id):
-                refunded.append(f"<@{user_id}>")
+        for user_id, user_name in list(game["players"].items()):
+            if await self.refund_player(ctx, guild, user_id):
+                refunded.append(f"<@{user_id}> ({user_name})")
             else:
-                failed.append(f"<@{user_id}>")
+                failed.append(f"<@{user_id}> ({user_name})")
 
         del self.games[guild_id]
         return refunded, failed
@@ -54,44 +62,44 @@ class RussianRoulette(commands.Cog):
     @commands.guild_only()
     async def rrjoin(self, ctx):
         """Join Russian Roulette (10,000 credit entry)"""
-        guild_id = ctx.guild.id
-        user_id = ctx.author.id
-        user_name = ctx.author.display_name
+        guild = ctx.guild
+        user = ctx.author
+        entry_fee = self.ENTRY_FEE
 
         async with self.join_lock:
             # Initialize game state
-            if guild_id not in self.games:
-                self.games[guild_id] = {
+            if guild.id not in self.games:
+                self.games[guild.id] = {
                     "players": {},
                     "pot": 0,
                     "in_progress": False
                 }
 
-            game = self.games[guild_id]
+            game = self.games[guild.id]
 
             # Validation checks
             if game["in_progress"]:
                 return await ctx.send("🚨 A game is in progress! Join the next round.")
-            if user_id in game["players"]:
+            if user.id in game["players"]:
                 return await ctx.send("⚠️ You're already in the lobby!")
             if len(game["players"]) >= 6:
                 return await ctx.send("🔒 Lobby full! Use `!rrstart` to begin")
 
             # Bank check
             try:
-                balance = await bank.get_balance(ctx.author)
-                if balance < self.ENTRY_FEE:
-                    return await ctx.send(f"❌ You need {self.ENTRY_FEE} credits! (You have: {balance})")
+                balance = await bank.get_balance(user)
+                if balance < entry_fee:
+                    return await ctx.send(f"❌ You need {entry_fee} credits! (You have: {balance})")
 
-                await bank.withdraw_credits(ctx.author, self.ENTRY_FEE)
+                await bank.withdraw_credits(user, entry_fee)
             except Exception as e:
                 return await ctx.send(f"❌ Bank error: {str(e)}")
 
             # Add player
-            game["players"][user_id] = user_name
-            game["pot"] += self.ENTRY_FEE
+            game["players"][user.id] = user.display_name
+            game["pot"] += entry_fee
             await ctx.send(
-                f"🔫 {ctx.author.mention} joined! "
+                f"🔫 {user.mention} joined! "
                 f"Players: **{len(game['players'])}/6** | "
                 f"Pot: **{game['pot']:,} credits**\n"
                 f"Use `{ctx.prefix}rrstart` to begin or wait for more players"
@@ -105,19 +113,19 @@ class RussianRoulette(commands.Cog):
     @commands.guild_only()
     async def rrstart(self, ctx):
         """Start Russian Roulette with current players"""
-        guild_id = ctx.guild.id
+        guild = ctx.guild
 
         # Lobby check
-        if guild_id not in self.games or not self.games[guild_id]["players"]:
+        if guild.id not in self.games or not self.games[guild.id]["players"]:
             return await ctx.send("❌ No active lobby! Use `!rrjoin` first")
 
-        game = self.games[guild_id]
+        game = self.games[guild.id]
 
         if game["in_progress"]:
             return await ctx.send("🚨 Game already running!")
 
         if len(game["players"]) < 2:
-            refunded, failed = await self.refund_lobby(ctx, guild_id)
+            refunded, failed = await self.refund_lobby(ctx, guild.id)
             msg = "⚠️ Need at least 2 players! "
             if refunded:
                 msg += f"Refunded: {', '.join(refunded)}. "
@@ -128,28 +136,26 @@ class RussianRoulette(commands.Cog):
         try:
             # Game setup
             game["in_progress"] = True
-            player_ids = list(game["players"].keys())
-            display_names = list(game["players"].values())
+            player_data = list(game["players"].items())
             bullet_count = random.randint(1, 5)
-            random.shuffle(player_ids)
+            random.shuffle(player_data)
             survivors = []
 
             # Show game start
             embed = discord.Embed(
                 title="💀 RUSSIAN ROULETTE STARTING",
                 color=0xff0000,
-                description=f"**Pot:** {game['pot']:,} credits\n**Bullets:** {bullet_count}/6"
+                description=(
+                    f"**Pot:** {game['pot']:,} credits\n"
+                    f"**Bullets:** {bullet_count}/6\n"
+                    f"**Players:** {len(player_data)}"
+                )
             )
 
-            players_list = "\n".join(
-                f"<@{id}> - {name}"
-                for id, name in zip(player_ids, display_names)
-            )
-            embed.add_field(name="Players", value=players_list, inline=False)
             await ctx.send(embed=embed)
 
             # Game sequence
-            for user_id, display_name in zip(player_ids, display_names):
+            for user_id, display_name in player_data:
                 await asyncio.sleep(2)
 
                 if random.randint(1, 6) <= bullet_count:  # Player shot
@@ -167,8 +173,12 @@ class RussianRoulette(commands.Cog):
 
                 for user_id, display_name in survivors:
                     try:
-                        await bank.deposit_credits(user_id, winnings)
-                        winners_msg.append(f"<@{user_id}> ({display_name})")
+                        member = await self.get_member(guild, user_id)
+                        if member:
+                            await bank.deposit_credits(member, winnings)
+                            winners_msg.append(f"<@{user_id}> ({display_name})")
+                        else:
+                            raise ValueError("Player not found")
                     except Exception as e:
                         failed_msg.append(f"<@{user_id}> - {str(e)}")
 
@@ -184,25 +194,25 @@ class RussianRoulette(commands.Cog):
 
         except Exception as e:
             await ctx.send(f"⚠️ Game error: {str(e)}. Refunding all players...")
-            refunded, failed = await self.refund_lobby(ctx, guild_id)
+            refunded, failed = await self.refund_lobby(ctx, guild.id)
             if refunded:
                 await ctx.send(f"✅ Refunded: {', '.join(refunded)}")
             if failed:
                 await ctx.send(f"❌ Failed to refund: {', '.join(failed)}")
         finally:
             # Cleanup
-            if guild_id in self.games:
-                del self.games[guild_id]
+            if guild.id in self.games:
+                del self.games[guild.id]
 
     @commands.command()
     @commands.guild_only()
     async def rrcancel(self, ctx):
         """Cancel the current lobby and refund players"""
-        guild_id = ctx.guild.id
-        if guild_id not in self.games:
+        guild = ctx.guild
+        if guild.id not in self.games:
             return await ctx.send("❌ No active lobby!")
 
-        refunded, failed = await self.refund_lobby(ctx, guild_id)
+        refunded, failed = await self.refund_lobby(ctx, guild.id)
         msg = "✅ Lobby canceled. "
         if refunded:
             msg += f"Refunded: {', '.join(refunded)}. "
