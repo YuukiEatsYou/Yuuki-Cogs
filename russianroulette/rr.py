@@ -7,7 +7,7 @@ from redbot.core.errors import BalanceTooHigh
 class RussianRoulette(commands.Cog):
     """Multiplayer Russian Roulette with proper economy handling"""
 
-    ENTRY_FEE = 10000
+    ENTRY_FEE = 100000
 
     def __init__(self, bot):
         self.bot = bot
