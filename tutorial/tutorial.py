@@ -61,7 +61,10 @@ class TutorialCog(commands.Cog):
                 "`!lottopool` - View the current lottery price pool\n"
                 "`!battlepass buy` - Buy the current Battlepass for 5k YuukiCoins\n"
                 "`!battlepass claim` - Claim your Battlepass rewards every 24 hours\n"
-                "`!battlepass status` - View the current status of your Battlepass"
+                "`!battlepass status` - View the current status of your Battlepass\n"
+                "`!rrjoin` - Create or join a Russian Roulette lobby\n"
+                "`!rrstart` - Start the current Russian Roulette lobby\n"
+                "`!rrcancel` - Cancel the current Russian Roulette lobby"
             ),
             inline=False
         )
